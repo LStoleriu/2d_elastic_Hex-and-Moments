@@ -481,6 +481,7 @@ int Temperaturi(void)
 //**************************************************************************
 
 int Funct_Dopri(double time, double *input, double *deriv)
+/*
 {
 	long i, j, k, kk;
 	double radical, Fe, Fex, Fey;
@@ -513,6 +514,118 @@ int Funct_Dopri(double time, double *input, double *deriv)
 	}
 	return (0);
 }
+*/
+{
+	long i, j, k, kk;
+	float radical, Fe, Fex, Fey, LocoFex, LocoFey, Mom, LocoMom;
+	float alungirea;
+	float o_x_anchor[4], o_y_anchor[4], v_x_anchor[4], v_y_anchor[4];
+	float help_sin_o, help_cos_o, help_sin_v, help_cos_v;
+
+	for (i = 0; i < n_part; i++)		// ATENTIE!!! de la 1 pentru ca 0 e blocata
+	{
+		k = 6 * i;
+		Fex = 0.0;
+		Fey = 0.0;
+		Mom = 0.0;
+
+		help_sin_o = Medium_raza[i] * sin(input[k + 4]);
+		help_cos_o = Medium_raza[i] * cos(input[k + 4]);
+		o_x_anchor[0] = input[k + 0] + help_cos_o;
+		o_y_anchor[0] = input[k + 2] + help_sin_o;
+		o_x_anchor[1] = input[k + 0] - help_sin_o;
+		o_y_anchor[1] = input[k + 2] + help_cos_o;
+		o_x_anchor[2] = input[k + 0] - help_cos_o;
+		o_y_anchor[2] = input[k + 2] - help_sin_o;
+		o_x_anchor[3] = input[k + 0] + help_sin_o;
+		o_y_anchor[3] = input[k + 2] - help_cos_o;
+
+		for (j = 0; j < neighbours[i]; j++)
+		{
+			kk = 6 * Position_Coef_vecin[i*n_max_vec + j];
+
+			help_sin_v = Medium_raza[Position_Coef_vecin[i*n_max_vec + j]] * sin(input[kk + 4]);
+			help_cos_v = Medium_raza[Position_Coef_vecin[i*n_max_vec + j]] * cos(input[kk + 4]);
+			v_x_anchor[0] = input[kk + 0] + help_cos_v;
+			v_y_anchor[0] = input[kk + 2] + help_sin_v;
+			v_x_anchor[1] = input[kk + 0] - help_sin_v;
+			v_y_anchor[1] = input[kk + 2] + help_cos_v;
+			v_x_anchor[2] = input[kk + 0] - help_cos_v;
+			v_y_anchor[2] = input[kk + 2] - help_sin_v;
+			v_x_anchor[3] = input[kk + 0] + help_sin_v;
+			v_y_anchor[3] = input[kk + 2] - help_cos_v;
+
+			switch (Position_Coef_tip_vecin[i*n_max_vec + j])
+			{
+			case 1:
+				radical = sqrt((o_x_anchor[3] - v_x_anchor[1])*(o_x_anchor[3] - v_x_anchor[1]) + (o_y_anchor[3] - v_y_anchor[1])*(o_y_anchor[3] - v_y_anchor[1]));
+				break;
+			case 2:
+				radical = sqrt((o_x_anchor[2] - v_x_anchor[0])*(o_x_anchor[2] - v_x_anchor[0]) + (o_y_anchor[2] - v_y_anchor[0])*(o_y_anchor[2] - v_y_anchor[0]));
+				break;
+			case 3:
+				radical = sqrt((o_x_anchor[0] - v_x_anchor[2])*(o_x_anchor[0] - v_x_anchor[2]) + (o_y_anchor[0] - v_y_anchor[2])*(o_y_anchor[0] - v_y_anchor[2]));
+				break;
+			case 4:
+				radical = sqrt((o_x_anchor[1] - v_x_anchor[3])*(o_x_anchor[1] - v_x_anchor[3]) + (o_y_anchor[1] - v_y_anchor[3])*(o_y_anchor[1] - v_y_anchor[3]));
+				break;
+			default:
+				printf("PANIC!!! tip_vecin nu e 1, 2, 3 sau 4 la part %d vecin %d\n", i, j);
+				break;
+			}
+
+			alungirea = (radical - L);
+			Fe = Kf_mic_mic * alungirea;
+
+			switch (Position_Coef_tip_vecin[i*n_max_vec + j])
+			{
+			case 1:
+				LocoFex = Fe * (v_x_anchor[1] - o_x_anchor[3]) / radical + rigid_t * ((v_x_anchor[1] - o_x_anchor[3]) + (v_x_anchor[1] - input[kk + 0]) * (o_y_anchor[3] - v_y_anchor[1]) / (v_y_anchor[1] - input[kk + 2])) / L;
+				LocoFey = Fe * (v_y_anchor[1] - o_y_anchor[3]) / radical;
+				LocoMom = LocoFey * help_sin_o - LocoFex * (-help_cos_o) - rigid_r * help_sin_o;
+				break;
+			case 2:
+				LocoFex = Fe * (v_x_anchor[0] - o_x_anchor[2]) / radical;
+				LocoFey = Fe * (v_y_anchor[0] - o_y_anchor[2]) / radical + rigid_t * ((v_y_anchor[0] - o_y_anchor[2]) + (v_y_anchor[0] - input[kk + 2]) * (o_x_anchor[2] - v_x_anchor[0]) / (v_x_anchor[0] - input[kk + 0])) / L;
+				LocoMom = LocoFey * (-help_cos_o) - LocoFex * (-help_sin_o) - rigid_r * help_sin_o;
+				break;
+			case 3:
+				LocoFex = Fe * (v_x_anchor[2] - o_x_anchor[0]) / radical;
+				LocoFey = Fe * (v_y_anchor[2] - o_y_anchor[0]) / radical + rigid_t * ((v_y_anchor[2] - o_y_anchor[0]) + (v_y_anchor[2] - input[kk + 2]) * (o_x_anchor[0] - v_x_anchor[2]) / (v_x_anchor[2] - input[kk + 0])) / L;
+				LocoMom = LocoFey * help_cos_o - LocoFex * help_sin_o - rigid_r * help_sin_o;
+				break;
+			case 4:
+				LocoFex = Fe * (v_x_anchor[3] - o_x_anchor[1]) / radical + rigid_t * ((v_x_anchor[3] - o_x_anchor[1]) + (v_x_anchor[3] - input[kk + 0]) * (o_y_anchor[1] - v_y_anchor[3]) / (v_y_anchor[3] - input[kk + 2])) / L;
+				LocoFey = Fe * (v_y_anchor[3] - o_y_anchor[1]) / radical;
+				LocoMom = LocoFey * (-help_sin_o) - LocoFex * help_cos_o - rigid_r * help_sin_o;
+				break;
+			default:
+				//printf("PANIC!!! tip_vecin nu e 1, 2, 3 sau 4 la part %d vecin %d\n", i, j);
+				break;
+			}
+
+			Fex += LocoFex;
+			Fey += LocoFey;
+			Mom += LocoMom;
+		}
+
+		// 		if (i == (n_part - 1))
+		// 		{
+		// 			Fex -= 0.005;
+		// 			Fey -= 0.005;
+		// 		}
+
+		deriv[k] = input[k + 1];
+		deriv[k + 1] = (Fex - mu * input[k + 1]) / m;
+		deriv[k + 2] = input[k + 3];
+		deriv[k + 3] = (Fey - mu * input[k + 3]) / m;
+		deriv[k + 4] = input[k + 5];
+		deriv[k + 5] = (Mom - mu * input[k + 5]) / m;
+	}
+	return(0);
+}
+
+
 
 //*************************************************************************
 
